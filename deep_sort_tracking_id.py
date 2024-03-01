@@ -20,20 +20,20 @@ from deep_sort_pytorch.deep_sort import DeepSort
 from collections import deque
 import numpy as np
 import math
+
 palette = (2 ** 11 - 1, 2 ** 15 - 1, 2 ** 20 - 1)
 
 # Initializing a Dictionary by the name data_deque
 data_deque = {}
 
-object_counter = {}
-object_counter1 = {}
 transform_matrix_path = "./birdeyes/transform_matrix.npy"
 M = np.load(transform_matrix_path)
 M = np.array(M, np.float32)
 transformed_center_deque = {}
 
-beta={}
+beta = {}
 speed_line_queue = {}
+
 
 def xyxy_to_xywh(*xyxy):
     """" Calculates the relative bounding box from absolute pixel values. """
@@ -47,6 +47,7 @@ def xyxy_to_xywh(*xyxy):
     h = bbox_h
     return x_c, y_c, w, h
 
+
 def xyxy_to_tlwh(bbox_xyxy):
     tlwh_bboxs = []
     for i, box in enumerate(bbox_xyxy):
@@ -59,15 +60,16 @@ def xyxy_to_tlwh(bbox_xyxy):
         tlwh_bboxs.append(tlwh_obj)
     return tlwh_bboxs
 
+
 def compute_color_for_labels(label):
     """
     Simple function that adds fixed color depending on the class
     """
-    if label == 0: #person
-        color = (85,45,255)
-    elif label == 2: # Car
-        color = (222,82,175)
-    elif label == 3:  # Motobike
+    if label == 0:  # person
+        color = (85, 45, 255)
+    elif label == 2:  # Car
+        color = (222, 82, 175)
+    elif label == 3:  # Motorbike
         color = (0, 204, 255)
     elif label == 5:  # Bus
         color = (0, 149, 255)
@@ -75,9 +77,10 @@ def compute_color_for_labels(label):
         color = [int((p * (label ** 2 - label + 1)) % 255) for p in palette]
     return tuple(color)
 
+
 def draw_border(img, pt1, pt2, color, thickness, r, d):
-    x1,y1 = pt1
-    x2,y2 = pt2
+    x1, y1 = pt1
+    x2, y2 = pt2
     # Top left
     cv2.line(img, (x1 + r, y1), (x1 + r + d, y1), color, thickness)
     cv2.line(img, (x1, y1 + r), (x1, y1 + r + d), color, thickness)
@@ -97,17 +100,19 @@ def draw_border(img, pt1, pt2, color, thickness, r, d):
 
     cv2.rectangle(img, (x1 + r, y1), (x2 - r, y2), color, -1, cv2.LINE_AA)
     cv2.rectangle(img, (x1, y1 + r), (x2, y2 - r - d), color, -1, cv2.LINE_AA)
-    
-    cv2.circle(img, (x1 +r, y1+r), 2, color, 12)
-    cv2.circle(img, (x2 -r, y1+r), 2, color, 12)
-    cv2.circle(img, (x1 +r, y2-r), 2, color, 12)
-    cv2.circle(img, (x2 -r, y2-r), 2, color, 12)
-    
+
+    cv2.circle(img, (x1 + r, y1+r), 2, color, 12)
+    cv2.circle(img, (x2 - r, y1+r), 2, color, 12)
+    cv2.circle(img, (x1 + r, y2-r), 2, color, 12)
+    cv2.circle(img, (x2 - r, y2-r), 2, color, 12)
+
     return img
+
 
 def UI_box(x, img, color=None, label=None, line_thickness=None):
     # Plots one bounding box on image img
-    tl = line_thickness or round(0.002 * (img.shape[0] + img.shape[1]) / 2) + 1  # line/font thickness
+    tl = line_thickness or round(
+        0.002 * (img.shape[0] + img.shape[1]) / 2) + 1  # line/font thickness
     color = color or [random.randint(0, 255) for _ in range(3)]
     c1, c2 = (int(x[0]), int(x[1])), (int(x[2]), int(x[3]))
     cv2.rectangle(img, c1, c2, color, thickness=tl, lineType=cv2.LINE_AA)
@@ -115,26 +120,31 @@ def UI_box(x, img, color=None, label=None, line_thickness=None):
         tf = max(tl - 1, 1)  # font thickness
         t_size = cv2.getTextSize(label, 0, fontScale=tl / 5, thickness=tf)[0]
 
-        img = draw_border(img, (c1[0], c1[1] - t_size[1] -3), (c1[0] + t_size[0], c1[1]+3), color, 1, 8, 2)
+        img = draw_border(img, (c1[0], c1[1] - t_size[1] - 3),
+                          (c1[0] + t_size[0], c1[1]+3), color, 1, 8, 2)
 
-        cv2.putText(img, label, (c1[0], c1[1] - 2), 0, tl / 5, [225, 255, 255], thickness=tf, lineType=cv2.LINE_AA)
+        cv2.putText(img, label, (c1[0], c1[1] - 2), 0, tl / 5,
+                    [225, 255, 255], thickness=tf, lineType=cv2.LINE_AA)
 
-def estimateSpeed(location1, location2): 
-	d_pixels = math.sqrt(math.pow(location2[0] - location1[0], 2) + math.pow(location2[1] - location1[1], 2))
-	ppm = 15 #Pixels per Meter
-	d_meters = d_pixels / ppm
-	time_constant = 30 * 3.6
-	speed = d_meters * time_constant
-	return int(speed)
 
-def draw_boxes(img, bbox, names,object_id, identities=None, offset=(0, 0)):
+def estimateSpeed(location1, location2):
+    d_pixels = math.sqrt(math.pow(
+        location2[0] - location1[0], 2) + math.pow(location2[1] - location1[1], 2))
+    ppm = 15  # Pixels per Meter
+    d_meters = d_pixels / ppm
+    time_constant = 30 * 3.6
+    speed = d_meters * time_constant
+    return int(speed)
+
+
+def draw_boxes(img, bbox, names, object_id, identities=None, offset=(0, 0)):
     # cv2.line(img, line[0], line[1], (46,162,112), 3)
     # As we are doing detection frame by frame, so here i am checking the height and width of the current frame
     height, width, _ = img.shape
     for key in list(data_deque):
-      if key not in identities:
-        data_deque.pop(key)
-    
+        if key not in identities:
+            data_deque.pop(key)
+
     for i, box in enumerate(bbox):
         x1, y1, x2, y2 = [int(i) for i in box]
         x1 += offset[0]
@@ -143,42 +153,47 @@ def draw_boxes(img, bbox, names,object_id, identities=None, offset=(0, 0)):
         y2 += offset[1]
 
         # code to find center of bottom edge of the bounding box
-        center = (int((x2+x1)/ 2), int((y2+y2)/2))
+        center = (int((x2+x1) / 2), int((y2+y2)/2))
         np_center = np.array(center, dtype=np.float32).reshape(1, -1, 2)
         transformed_center = cv2.perspectiveTransform(np_center, M)
         # # get a unique ID of each object
         id = int(identities[i]) if identities is not None else 0
 
-        if id not in data_deque:  
-          data_deque[id] = deque(maxlen= opt.trailslen)
-          transformed_center_deque[id] = deque(maxlen=64)
-          speed_line_queue[id] = []
-          beta[id] = []
+        if id not in data_deque:
+            data_deque[id] = deque(maxlen=opt.trailslen)
+            transformed_center_deque[id] = deque(maxlen=64)
+            speed_line_queue[id] = []
+            beta[id] = []
         # Setting a unique color for each object bounding box and rounded rectangle which contains the label
         color = compute_color_for_labels(object_id[i])
         obj_name = names[object_id[i]]
         # Setting the Label in the Required Format
-        label = '{}{:d}'.format("", id) + ":"+ '%s' % (obj_name)
+        label = '{}{:d}'.format("", id) + ":" + '%s' % (obj_name)
 
         data_deque[id].appendleft(center)
         transformed_center_deque[id].appendleft(transformed_center[0][0])
-        
+
         if len(data_deque[id]) >= 2:
-             
-            if len(speed_line_queue[id])>=1:
-                A = 0.05*estimateSpeed(transformed_center_deque[id][1], transformed_center_deque[id][0]) + 0.95* speed_line_queue[id][-1]
-                B = 0.05 *  (A- speed_line_queue[id][-1]) + 0.95* beta[id][-1]
+
+            if len(speed_line_queue[id]) >= 1:
+                A = 0.05 * \
+                    estimateSpeed(
+                        transformed_center_deque[id][1], transformed_center_deque[id][0]) + 0.95 * speed_line_queue[id][-1]
+                B = 0.05 * (A - speed_line_queue[id][-1]) + 0.95 * beta[id][-1]
                 beta[id].append(B)
-                obj_speed=A+B
+                obj_speed = A+B
             else:
-                obj_speed = estimateSpeed(transformed_center_deque[id][1], transformed_center_deque[id][0])
+                obj_speed = estimateSpeed(
+                    transformed_center_deque[id][1], transformed_center_deque[id][0])
                 beta[id].append(1)
             speed_line_queue[id].append(obj_speed)
-            
+
         try:
             # label = label + " " + str(speed_line_queue[id][-1]) + "km/h"  ##
-            label = label + " " + str(sum(speed_line_queue[id][-5:])//len(speed_line_queue[id][-5:])) + "km/h"  ##
-        except :
+            label = label + " " + \
+                str(sum(speed_line_queue[id][-5:]) //
+                    len(speed_line_queue[id][-5:])) + "km/h"
+        except:
             pass
         UI_box(box, img, label=label, color=color, line_thickness=2)
         # draw trail
@@ -189,24 +204,31 @@ def draw_boxes(img, bbox, names,object_id, identities=None, offset=(0, 0)):
             # generate dynamic thickness of trails
             thickness = int(np.sqrt(opt.trailslen / float(i + i)) * 1.5)
             # draw trails
-            cv2.line(img, data_deque[id][i - 1], data_deque[id][i], color, thickness)
-        
+            cv2.line(img, data_deque[id][i - 1],
+                     data_deque[id][i], color, thickness)
 
     return img
+
+
 def load_classes(path):
     # Loads *.names file at 'path'
     with open(path, 'r') as f:
         names = f.read().split('\n')
-    return list(filter(None, names)) 
+    return list(filter(None, names))
+
+
 def detect(save_img=True):
-    names, source, weights, view_img, save_txt, imgsz, trace = opt.names, opt.source, opt.weights, opt.view_img, opt.save_txt, opt.img_size, not opt.no_trace 
-    save_img = not opt.nosave and not source.endswith('.txt')  # save inference images
+    names, source, weights, view_img, save_txt, imgsz, trace = opt.names, opt.source, opt.weights, opt.view_img, opt.save_txt, opt.img_size, not opt.no_trace
+    save_img = not opt.nosave and not source.endswith(
+        '.txt')  # save inference images
     webcam = source.isnumeric() or source.endswith('.txt') or source.lower().startswith(
         ('rtsp://', 'rtmp://', 'http://', 'https://'))
 
     # Directories
-    save_dir = Path(increment_path(Path(opt.project) / opt.name, exist_ok=opt.exist_ok))  # increment run
-    (save_dir / 'labels' if save_txt else save_dir).mkdir(parents=True, exist_ok=True)  # make dir
+    save_dir = Path(increment_path(Path(opt.project) / opt.name,
+                    exist_ok=opt.exist_ok))  # increment run
+    (save_dir / 'labels' if save_txt else save_dir).mkdir(parents=True,
+                                                          exist_ok=True)  # make dir
     # initialize deepsort
     cfg_deep = get_config()
     cfg_deep.merge_from_file("deep_sort_pytorch/configs/deep_sort.yaml")
@@ -235,7 +257,8 @@ def detect(save_img=True):
     classify = False
     if classify:
         modelc = load_classifier(name='resnet101', n=2)  # initialize
-        modelc.load_state_dict(torch.load('weights/resnet101.pt', map_location=device)['model']).to(device).eval()
+        modelc.load_state_dict(torch.load(
+            'weights/resnet101.pt', map_location=device)['model']).to(device).eval()
 
     # Set Dataloader
     vid_path, vid_writer = None, None
@@ -248,11 +271,12 @@ def detect(save_img=True):
 
     # Get names and colors
     names = load_classes(names)
-    #colors = [[random.randint(0, 255) for _ in range(3)] for _ in names]
+    # colors = [[random.randint(0, 255) for _ in range(3)] for _ in names]
 
     # Run inference
     if device.type != 'cpu':
-        model(torch.zeros(1, 3, imgsz, imgsz).to(device).type_as(next(model.parameters())))  # run once
+        model(torch.zeros(1, 3, imgsz, imgsz).to(device).type_as(
+            next(model.parameters())))  # run once
     old_img_w = old_img_h = imgsz
     old_img_b = 1
 
@@ -279,7 +303,8 @@ def detect(save_img=True):
         t2 = time_synchronized()
 
         # Apply NMS
-        pred = non_max_suppression(pred, opt.conf_thres, opt.iou_thres, classes=opt.classes, agnostic=opt.agnostic_nms)
+        pred = non_max_suppression(
+            pred, opt.conf_thres, opt.iou_thres, classes=opt.classes, agnostic=opt.agnostic_nms)
         t3 = time_synchronized()
 
         # Apply Classifier
@@ -289,17 +314,21 @@ def detect(save_img=True):
         # Process detections
         for i, det in enumerate(pred):  # detections per image
             if webcam:  # batch_size >= 1
-                p, s, im0, frame = path[i], '%g: ' % i, im0s[i].copy(), dataset.count
+                p, s, im0, frame = path[i], '%g: ' % i, im0s[i].copy(
+                ), dataset.count
             else:
                 p, s, im0, frame = path, '', im0s, getattr(dataset, 'frame', 0)
 
             p = Path(p)  # to Path
             save_path = str(save_dir / p.name)  # img.jpg
-            txt_path = str(save_dir / 'labels' / p.stem) + ('' if dataset.mode == 'image' else f'_{frame}')  # img.txt
-            gn = torch.tensor(im0.shape)[[1, 0, 1, 0]]  # normalization gain whwh
+            txt_path = str(save_dir / 'labels' / p.stem) + \
+                ('' if dataset.mode == 'image' else f'_{frame}')  # img.txt
+            # normalization gain whwh
+            gn = torch.tensor(im0.shape)[[1, 0, 1, 0]]
             if len(det):
                 # Rescale boxes from img_size to im0 size
-                det[:, :4] = scale_coords(img.shape[2:], det[:, :4], im0.shape).round()
+                det[:, :4] = scale_coords(
+                    img.shape[2:], det[:, :4], im0.shape).round()
 
                 # Print results
                 for c in det[:, -1].unique():
@@ -317,8 +346,11 @@ def detect(save_img=True):
                     confs.append([conf.item()])
                     oids.append(int(cls))
                     if save_txt:  # Write to file
-                        xywh = (xyxy2xywh(torch.tensor(xyxy).view(1, 4)) / gn).view(-1).tolist()  # normalized xywh
-                        line = (cls, *xywh, conf) if opt.save_conf else (cls, *xywh)  # label format
+                        xywh = (xyxy2xywh(torch.tensor(xyxy).view(1, 4)
+                                          ) / gn).view(-1).tolist()  # normalized xywh
+                        # label format
+                        line = (
+                            cls, *xywh, conf) if opt.save_conf else (cls, *xywh)
                         with open(txt_path + '.txt', 'a') as f:
                             f.write(('%g ' * len(line)).rstrip() % line + '\n')
                 xywhs = torch.Tensor(xywh_bboxs)
@@ -329,7 +361,7 @@ def detect(save_img=True):
                     identities = outputs[:, -2]
                     object_id = outputs[:, -1]
                     # DrawBoxes function to draw the bounding boxes, label them and show the ID of the tracker
-                    draw_boxes(im0, bbox_xyxy, names, object_id,identities)
+                    draw_boxes(im0, bbox_xyxy, names, object_id, identities)
             # Print time (inference + NMS)
             # print(f'{s}Done. ({(1E3 * (t2 - t1)):.1f}ms) Inference, ({(1E3 * (t3 - t2)):.1f}ms) NMS')
 
@@ -342,7 +374,8 @@ def detect(save_img=True):
             if save_img:
                 if dataset.mode == 'image':
                     cv2.imwrite(save_path, im0)
-                    print(f" The image with the result is saved in: {save_path}")
+                    print(
+                        f" The image with the result is saved in: {save_path}")
                 else:  # 'video' or 'stream'
                     if vid_path != save_path:  # new video
                         vid_path = save_path
@@ -355,39 +388,60 @@ def detect(save_img=True):
                         else:  # stream
                             fps, w, h = 30, im0.shape[1], im0.shape[0]
                             save_path += '.mp4'
-                        vid_writer = cv2.VideoWriter(save_path, cv2.VideoWriter_fourcc(*'mp4v'), fps, (w, h))
+                        vid_writer = cv2.VideoWriter(
+                            save_path, cv2.VideoWriter_fourcc(*'mp4v'), fps, (w, h))
                     vid_writer.write(im0)
 
     if save_txt or save_img:
         s = f"\n{len(list(save_dir.glob('labels/*.txt')))} labels saved to {save_dir / 'labels'}" if save_txt else ''
-        #print(f"Results saved to {save_dir}{s}")
-
+        # print(f"Results saved to {save_dir}{s}")
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--weights', nargs='+', type=str, default='yolov7.pt', help='model.pt path(s)')
-    parser.add_argument('--source', type=str, default='inference/images', help='source')  # file/folder, 0 for webcam
-    parser.add_argument('--img-size', type=int, default=1280, help='inference size (pixels)')
-    parser.add_argument('--conf-thres', type=float, default=0.6, help='object confidence threshold')
-    parser.add_argument('--iou-thres', type=float, default=0.4, help='IOU threshold for NMS')
-    parser.add_argument('--device', default='0', help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
-    parser.add_argument('--view-img', action='store_true', help='display results')
-    parser.add_argument('--save-txt', action='store_true', help='save results to *.txt')
-    parser.add_argument('--save-conf', action='store_true', help='save confidences in --save-txt labels')
-    parser.add_argument('--nosave', action='store_true', help='do not save images/videos')
-    parser.add_argument('--classes', nargs='+',type=int, help='filter by class: --class 0, or --class 0 2 3')
-    parser.add_argument('--agnostic-nms', action='store_true', help='class-agnostic NMS')
-    parser.add_argument('--augment', action='store_true', help='augmented inference')
-    parser.add_argument('--update', action='store_true', help='update all models')
-    parser.add_argument('--project', default='runs/detect', help='save results to project/name')
-    parser.add_argument('--name', default='exp', help='save results to project/name')
-    parser.add_argument('--names', type=str, default='data/coco.names', help='*.cfg path')
-    parser.add_argument('--exist-ok', action='store_true', help='existing project/name ok, do not increment')
-    parser.add_argument('--no-trace', action='store_true', help='don`t trace model')
-    parser.add_argument('--trailslen', type=int, default=64, help='trails size (new parameter)')
+    parser.add_argument('--weights', nargs='+', type=str,
+                        default='yolov7.pt', help='model.pt path(s)')
+    # file/folder, 0 for webcam
+    parser.add_argument('--source', type=str,
+                        default='inference/images', help='source')
+    parser.add_argument('--img-size', type=int, default=1280,
+                        help='inference size (pixels)')
+    parser.add_argument('--conf-thres', type=float,
+                        default=0.6, help='object confidence threshold')
+    parser.add_argument('--iou-thres', type=float,
+                        default=0.4, help='IOU threshold for NMS')
+    parser.add_argument('--device', default='0',
+                        help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
+    parser.add_argument('--view-img', action='store_true',
+                        help='display results')
+    parser.add_argument('--save-txt', action='store_true',
+                        help='save results to *.txt')
+    parser.add_argument('--save-conf', action='store_true',
+                        help='save confidences in --save-txt labels')
+    parser.add_argument('--nosave', action='store_true',
+                        help='do not save images/videos')
+    parser.add_argument('--classes', nargs='+', type=int,
+                        help='filter by class: --class 0, or --class 0 2 3')
+    parser.add_argument('--agnostic-nms', action='store_true',
+                        help='class-agnostic NMS')
+    parser.add_argument('--augment', action='store_true',
+                        help='augmented inference')
+    parser.add_argument('--update', action='store_true',
+                        help='update all models')
+    parser.add_argument('--project', default='runs/detect',
+                        help='save results to project/name')
+    parser.add_argument('--name', default='exp',
+                        help='save results to project/name')
+    parser.add_argument('--names', type=str,
+                        default='data/coco.names', help='*.cfg path')
+    parser.add_argument('--exist-ok', action='store_true',
+                        help='existing project/name ok, do not increment')
+    parser.add_argument('--no-trace', action='store_true',
+                        help='don`t trace model')
+    parser.add_argument('--trailslen', type=int, default=64,
+                        help='trails size (new parameter)')
     opt = parser.parse_args()
-    #check_requirements(exclude=('pycocotools', 'thop'))
+    # check_requirements(exclude=('pycocotools', 'thop'))
 
     with torch.no_grad():
         if opt.update:  # update all models (to fix SourceChangeWarning)
