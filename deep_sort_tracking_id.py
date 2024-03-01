@@ -400,10 +400,10 @@ def detect(save_img=True):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--weights', nargs='+', type=str,
-                        default='yolov7.pt', help='model.pt path(s)')
+                        default='yolov7e6e.pt', help='model.pt path(s)')
     # file/folder, 0 for webcam
     parser.add_argument('--source', type=str,
-                        default='inference/images', help='source')
+                        default='test1.mp4', help='source')
     parser.add_argument('--img-size', type=int, default=1280,
                         help='inference size (pixels)')
     parser.add_argument('--conf-thres', type=float,
@@ -413,7 +413,7 @@ if __name__ == '__main__':
     parser.add_argument('--device', default='0',
                         help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
     parser.add_argument('--view-img', action='store_true',
-                        help='display results')
+                        default=True, help='display results')
     parser.add_argument('--save-txt', action='store_true',
                         help='save results to *.txt')
     parser.add_argument('--save-conf', action='store_true',
