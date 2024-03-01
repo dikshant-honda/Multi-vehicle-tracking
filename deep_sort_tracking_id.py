@@ -339,6 +339,11 @@ def detect(save_img=True):
                 confs = []
                 # Same for the oids (object id), we will append the Object ID's into it
                 oids = []
+
+                """
+                change:
+                OIDs is storing the type of vehicle id not the actual object id
+                """
                 for *xyxy, conf, cls in reversed(det):
                     x_c, y_c, bbox_w, bbox_h = xyxy_to_xywh(*xyxy)
                     xywh_obj = [x_c, y_c, bbox_w, bbox_h]
