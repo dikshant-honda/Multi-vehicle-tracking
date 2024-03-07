@@ -137,7 +137,7 @@ def estimateSpeed(location1, location2):
     return int(speed)
 
 
-def draw_boxes(img, bbox, names, object_id, identities=None, offset=(0, 0)):
+def draw_boxes(img, bbox, names, object_id, save_txt, txt_path, identities=None, offset=(0, 0)):
     # cv2.line(img, line[0], line[1], (46,162,112), 3)
     # As we are doing detection frame by frame, so here i am checking the height and width of the current frame
     height, width, _ = img.shape
@@ -206,6 +206,12 @@ def draw_boxes(img, bbox, names, object_id, identities=None, offset=(0, 0)):
             # draw trails
             cv2.line(img, data_deque[id][i - 1],
                      data_deque[id][i], color, thickness)
+
+        if save_txt and len(data_deque[id]) >= 2:
+            line = (id, x1, y1, sum(speed_line_queue[id][-5:]) //
+                    len(speed_line_queue[id][-5:]))
+            with open(txt_path + '.txt', 'a') as f:
+                f.write(('%g ' * len(line)).rstrip() % line + '\n')
 
     return img
 
@@ -350,14 +356,14 @@ def detect(save_img=True):
                     xywh_bboxs.append(xywh_obj)
                     confs.append([conf.item()])
                     oids.append(int(cls))
-                    if save_txt:  # Write to file
-                        xywh = (xyxy2xywh(torch.tensor(xyxy).view(1, 4)
-                                          ) / gn).view(-1).tolist()  # normalized xywh
-                        # label format
-                        line = (
-                            cls, *xywh, conf) if opt.save_conf else (cls, *xywh)
-                        with open(txt_path + '.txt', 'a') as f:
-                            f.write(('%g ' * len(line)).rstrip() % line + '\n')
+                    # if save_txt:  # Write to file
+                    #     xywh = (xyxy2xywh(torch.tensor(xyxy).view(1, 4)
+                    #                       ) / gn).view(-1).tolist()  # normalized xywh
+                    #     # label format
+                    #     line = (
+                    #         cls, *xywh, conf) if opt.save_conf else (cls, *xywh)
+                    #     with open(txt_path + '.txt', 'a') as f:
+                    #         f.write(('%g ' * len(line)).rstrip() % line + '\n')
                 xywhs = torch.Tensor(xywh_bboxs)
                 confss = torch.Tensor(confs)
                 outputs = deepsort.update(xywhs, confss, oids, im0)
@@ -366,7 +372,8 @@ def detect(save_img=True):
                     identities = outputs[:, -2]
                     object_id = outputs[:, -1]
                     # DrawBoxes function to draw the bounding boxes, label them and show the ID of the tracker
-                    draw_boxes(im0, bbox_xyxy, names, object_id, identities)
+                    draw_boxes(im0, bbox_xyxy, names, object_id,
+                               save_txt, txt_path, identities)
             # Print time (inference + NMS)
             # print(f'{s}Done. ({(1E3 * (t2 - t1)):.1f}ms) Inference, ({(1E3 * (t3 - t2)):.1f}ms) NMS')
 
