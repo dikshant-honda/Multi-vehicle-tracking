@@ -1,6 +1,10 @@
+#! usr/bin/env python3
+
 import argparse
 import time
 from pathlib import Path
+import rospy
+from std_msgs.msg import String
 
 import cv2
 import torch
@@ -13,7 +17,7 @@ from utils.general import check_img_size, check_requirements, check_imshow, non_
     scale_coords, xyxy2xywh, strip_optimizer, set_logging, increment_path
 from utils.plots import plot_one_box
 from utils.torch_utils import select_device, load_classifier, time_synchronized, TracedModel
-
+from multi_vehicle_tracking.msg import data
 
 from deep_sort_pytorch.utils.parser import get_config
 from deep_sort_pytorch.deep_sort import DeepSort
@@ -206,6 +210,9 @@ def draw_boxes(img, bbox, names, object_id, save_txt, txt_path, identities=None,
             # draw trails
             cv2.line(img, data_deque[id][i - 1],
                      data_deque[id][i], color, thickness)
+            
+        pub.publish('test')
+        rate.sleep()
 
         if save_txt and len(data_deque[id]) >= 2:
             line = (id, x1, y1, sum(speed_line_queue[id][-5:]) //
@@ -455,10 +462,16 @@ if __name__ == '__main__':
     opt = parser.parse_args()
     # check_requirements(exclude=('pycocotools', 'thop'))
 
-    with torch.no_grad():
-        if opt.update:  # update all models (to fix SourceChangeWarning)
-            for opt.weights in ['yolov7.pt']:
+    # publishing the data 
+    pub = rospy.Publisher('pos_and_vel_data', String, queue_size=10)
+    rospy.init_node('data')
+    rate = rospy.Rate(10000)
+
+    while not rospy.is_shutdown():
+        with torch.no_grad():
+            if opt.update:  # update all models (to fix SourceChangeWarning)
+                for opt.weights in ['yolov7.pt']:
+                    detect()
+                    strip_optimizer(opt.weights)
+            else:
                 detect()
-                strip_optimizer(opt.weights)
-        else:
-            detect()
