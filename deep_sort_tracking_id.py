@@ -414,6 +414,8 @@ def detect(save_img=True):
     if save_txt or save_img:
         s = f"\n{len(list(save_dir.glob('labels/*.txt')))} labels saved to {save_dir / 'labels'}" if save_txt else ''
         print(f"Results saved to {save_dir}{s}")
+    
+    loop = True
 
 
 if __name__ == '__main__':
@@ -467,7 +469,9 @@ if __name__ == '__main__':
     rospy.init_node('data')
     rate = rospy.Rate(10000)
 
-    while not rospy.is_shutdown():
+    loop = False    # boolean to avoid looping
+
+    while not rospy.is_shutdown() and not loop:
         with torch.no_grad():
             if opt.update:  # update all models (to fix SourceChangeWarning)
                 for opt.weights in ['yolov7.pt']:
