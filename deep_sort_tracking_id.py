@@ -231,6 +231,8 @@ def load_classes(path):
 
 
 def detect(save_img=True):
+    global loop
+    loop = True
     names, source, weights, view_img, save_txt, imgsz, trace = opt.names, opt.source, opt.weights, opt.view_img, opt.save_txt, opt.img_size, not opt.no_trace
     save_img = not opt.nosave and not source.endswith(
         '.txt')  # save inference images
@@ -414,8 +416,6 @@ def detect(save_img=True):
     if save_txt or save_img:
         s = f"\n{len(list(save_dir.glob('labels/*.txt')))} labels saved to {save_dir / 'labels'}" if save_txt else ''
         print(f"Results saved to {save_dir}{s}")
-    
-    loop = True
 
 
 if __name__ == '__main__':
