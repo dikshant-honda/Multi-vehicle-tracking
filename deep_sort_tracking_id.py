@@ -17,7 +17,7 @@ from utils.general import check_img_size, check_requirements, check_imshow, non_
     scale_coords, xyxy2xywh, strip_optimizer, set_logging, increment_path
 from utils.plots import plot_one_box
 from utils.torch_utils import select_device, load_classifier, time_synchronized, TracedModel
-
+import matplotlib.pyplot as plt 
 from deep_sort_pytorch.utils.parser import get_config
 from deep_sort_pytorch.deep_sort import DeepSort
 from collections import deque
@@ -142,7 +142,7 @@ def estimateSpeed(location1, location2):
 
 def draw_boxes(img, bbox, names, object_id, save_txt, txt_path, identities=None, offset=(0, 0)):
     pos_and_vel_data = pos_and_vel()
-
+    direction = 0
     # cv2.line(img, line[0], line[1], (46,162,112), 3)
     # As we are doing detection frame by frame, so here i am checking the height and width of the current frame
     height, width, _ = img.shape
@@ -177,7 +177,8 @@ def draw_boxes(img, bbox, names, object_id, save_txt, txt_path, identities=None,
 
         data_deque[id].appendleft(center)
         transformed_center_deque[id].appendleft(transformed_center[0][0])
-
+        
+    
         if len(data_deque[id]) >= 2:
 
             if len(speed_line_queue[id]) >= 1:
@@ -213,13 +214,21 @@ def draw_boxes(img, bbox, names, object_id, save_txt, txt_path, identities=None,
                      data_deque[id][i], color, thickness)
 
         if len(data_deque[id]) >= 2:
-            print(type(pos_and_vel_data.id))
+            if transformed_center_deque[id][0][1]- transformed_center_deque[id][-1][1]>0:
+                direction = 1
+            else: 
+                direction=-1
+
+        if len(data_deque[id]) >= 2:
+            pos_and_vel_data.number_of_vehicles.data = len(bbox)
             pos_and_vel_data.id.data = id
-            pos_and_vel_data.x_position.data = x1
-            pos_and_vel_data.y_position.data = y1
+            pos_and_vel_data.x_position.data = transformed_center[0][0][0]
+            pos_and_vel_data.y_position.data = transformed_center[0][0][1]
             pos_and_vel_data.speed.data = sum(speed_line_queue[id][-5:]) // len(speed_line_queue[id][-5:])
+            pos_and_vel_data.direction.data = direction 
             pub.publish(pos_and_vel_data)
-            rospy.loginfo(pos_and_vel_data)
+            
+            # rospy.loginfo(pos_and_vel_data)
         rate.sleep()
 
         if save_txt and len(data_deque[id]) >= 2:
