@@ -4,7 +4,7 @@ import argparse
 import time
 from pathlib import Path
 import rospy
-from std_msgs.msg import String
+from multi_vehicle_tracking.msg import pos_and_vel
 
 import cv2
 import torch
@@ -17,7 +17,6 @@ from utils.general import check_img_size, check_requirements, check_imshow, non_
     scale_coords, xyxy2xywh, strip_optimizer, set_logging, increment_path
 from utils.plots import plot_one_box
 from utils.torch_utils import select_device, load_classifier, time_synchronized, TracedModel
-from multi_vehicle_tracking.msg import data
 
 from deep_sort_pytorch.utils.parser import get_config
 from deep_sort_pytorch.deep_sort import DeepSort
@@ -142,6 +141,8 @@ def estimateSpeed(location1, location2):
 
 
 def draw_boxes(img, bbox, names, object_id, save_txt, txt_path, identities=None, offset=(0, 0)):
+    pos_and_vel_data = pos_and_vel()
+
     # cv2.line(img, line[0], line[1], (46,162,112), 3)
     # As we are doing detection frame by frame, so here i am checking the height and width of the current frame
     height, width, _ = img.shape
@@ -210,8 +211,15 @@ def draw_boxes(img, bbox, names, object_id, save_txt, txt_path, identities=None,
             # draw trails
             cv2.line(img, data_deque[id][i - 1],
                      data_deque[id][i], color, thickness)
-            
-        pub.publish('test')
+
+        if len(data_deque[id]) >= 2:
+            print(type(pos_and_vel_data.id))
+            pos_and_vel_data.id.data = id
+            pos_and_vel_data.x_position.data = x1
+            pos_and_vel_data.y_position.data = y1
+            pos_and_vel_data.speed.data = sum(speed_line_queue[id][-5:]) // len(speed_line_queue[id][-5:])
+            pub.publish(pos_and_vel_data)
+            rospy.loginfo(pos_and_vel_data)
         rate.sleep()
 
         if save_txt and len(data_deque[id]) >= 2:
@@ -464,18 +472,18 @@ if __name__ == '__main__':
     opt = parser.parse_args()
     # check_requirements(exclude=('pycocotools', 'thop'))
 
-    # publishing the data 
-    pub = rospy.Publisher('pos_and_vel_data', String, queue_size=10)
+    # publishing the data
+    pub = rospy.Publisher('pos_and_vel_data', pos_and_vel, queue_size=10)
     rospy.init_node('data')
     rate = rospy.Rate(10000)
 
     loop = False    # boolean to avoid looping
 
-    while not rospy.is_shutdown() and not loop:
-        with torch.no_grad():
-            if opt.update:  # update all models (to fix SourceChangeWarning)
-                for opt.weights in ['yolov7.pt']:
-                    detect()
-                    strip_optimizer(opt.weights)
-            else:
+    # while not rospy.is_shutdown() and not loop:
+    with torch.no_grad():
+        if opt.update:  # update all models (to fix SourceChangeWarning)
+            for opt.weights in ['yolov7.pt']:
                 detect()
+                strip_optimizer(opt.weights)
+        else:
+            detect()
