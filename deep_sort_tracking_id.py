@@ -5,12 +5,12 @@ import time
 from pathlib import Path
 import rospy
 from multi_vehicle_tracking.msg import pos_and_vel
-
+from visualization_msgs.msg import Marker
 import cv2
 import torch
 import torch.backends.cudnn as cudnn
 from numpy import random
-
+from geometry_msgs.msg import PointStamped
 from models.experimental import attempt_load
 from utils.datasets import LoadStreams, LoadImages
 from utils.general import check_img_size, check_requirements, check_imshow, non_max_suppression, apply_classifier, \
@@ -33,7 +33,7 @@ transform_matrix_path = "./birdeyes/transform_matrix.npy"
 M = np.load(transform_matrix_path)
 M = np.array(M, np.float32)
 transformed_center_deque = {}
-
+heading_deque = {}
 beta = {}
 speed_line_queue = {}
 
@@ -142,6 +142,8 @@ def estimateSpeed(location1, location2):
 
 def draw_boxes(img, bbox, names, object_id, save_txt, txt_path, identities=None, offset=(0, 0)):
     pos_and_vel_data = pos_and_vel()
+    robotMarker = Marker()
+    state = PointStamped()
     direction = 0
     # cv2.line(img, line[0], line[1], (46,162,112), 3)
     # As we are doing detection frame by frame, so here i am checking the height and width of the current frame
@@ -168,6 +170,7 @@ def draw_boxes(img, bbox, names, object_id, save_txt, txt_path, identities=None,
             data_deque[id] = deque(maxlen=opt.trailslen)
             transformed_center_deque[id] = deque(maxlen=64)
             speed_line_queue[id] = []
+            heading_deque[id] = deque(maxlen=64)
             beta[id] = []
         # Setting a unique color for each object bounding box and rounded rectangle which contains the label
         color = compute_color_for_labels(object_id[i])
@@ -213,13 +216,66 @@ def draw_boxes(img, bbox, names, object_id, save_txt, txt_path, identities=None,
             cv2.line(img, data_deque[id][i - 1],
                      data_deque[id][i], color, thickness)
 
-        if len(data_deque[id]) >= 2:
-            if transformed_center_deque[id][0][1]- transformed_center_deque[id][-1][1]>0:
+        # if len(data_deque[id])>=4:
+        #     thetac= math.degrees(math.atan((transformed_center_deque[id][-1][1]-transformed_center_deque[id][-4][1])/(transformed_center_deque[id][-1][0]-transformed_center_deque[id][-4][0])))
+        #     heading_deque[id].append(thetac)
+
+        if len(data_deque[id]) >= 5:
+
+            # deltheta = heading_deque[id][-1]-heading_deque[id][-2]
+            # normdeltheta = (deltheta+180)/360
+            # coeff = (math.cos(4*math.pi*normdeltheta) +1)/2
+            # heading = heading_deque[id][-2] + coeff*deltheta
+
+            if transformed_center_deque[id][-1][0]-transformed_center_deque[id][0][0]>=0: # this is working on difference in x coordinate not y!!!!!!!!!!!!! 
                 direction = 1
+                robotMarker.header.frame_id = "map"
+                robotMarker.header.stamp    = rospy.get_rostime()
+                robotMarker.ns = "vehicle"
+                robotMarker.id = id
+                robotMarker.type = 2 # sphere
+                robotMarker.action = 0
+                robotMarker.pose.position.x = transformed_center[0][0][0]
+                robotMarker.pose.position.y = transformed_center[0][0][1]
+                robotMarker.pose.position.z = 0
+                robotMarker.pose.orientation.x = 0
+                robotMarker.pose.orientation.y = 0
+                robotMarker.pose.orientation.z = 0
+                robotMarker.pose.orientation.w = 1.0
+                robotMarker.scale.x = 100.0
+                robotMarker.scale.y = 100.0
+                robotMarker.scale.z = 100.0
+
+                robotMarker.color.r = 0.0
+                robotMarker.color.g = 1.0
+                robotMarker.color.b = 0.0
+                robotMarker.color.a = 1.0
+                robotMarker.lifetime.nsecs = 75000000
             else: 
                 direction=-1
+                robotMarker.header.frame_id = "map"
+                robotMarker.header.stamp    = rospy.get_rostime()
+                robotMarker.ns = "vehicle"
+                robotMarker.id = id
+                robotMarker.type = 1 # cube
+                robotMarker.action = 0
+                robotMarker.pose.position.x = transformed_center[0][0][0]
+                robotMarker.pose.position.y = transformed_center[0][0][1]
+                robotMarker.pose.position.z = 0
+                robotMarker.pose.orientation.x = 0
+                robotMarker.pose.orientation.y = 0
+                robotMarker.pose.orientation.z = 0
+                robotMarker.pose.orientation.w = 1.0
+                robotMarker.scale.x = 100.0
+                robotMarker.scale.y = 100.0
+                robotMarker.scale.z = 100.0
 
-        if len(data_deque[id]) >= 2:
+                robotMarker.color.r = 1.0
+                robotMarker.color.g = 0.0
+                robotMarker.color.b = 0.0
+                robotMarker.color.a = 1.0
+                robotMarker.lifetime.nsecs = 75000000
+
             pos_and_vel_data.number_of_vehicles.data = len(bbox)
             pos_and_vel_data.id.data = id
             pos_and_vel_data.x_position.data = transformed_center[0][0][0]
@@ -227,6 +283,7 @@ def draw_boxes(img, bbox, names, object_id, save_txt, txt_path, identities=None,
             pos_and_vel_data.speed.data = sum(speed_line_queue[id][-5:]) // len(speed_line_queue[id][-5:])
             pos_and_vel_data.direction.data = direction 
             pub.publish(pos_and_vel_data)
+            markerPub.publish(robotMarker)
             
             # rospy.loginfo(pos_and_vel_data)
         rate.sleep()
@@ -483,6 +540,7 @@ if __name__ == '__main__':
 
     # publishing the data
     pub = rospy.Publisher('pos_and_vel_data', pos_and_vel, queue_size=10)
+    markerPub = rospy.Publisher('robotMarker', Marker, queue_size=10)
     rospy.init_node('data')
     rate = rospy.Rate(10000)
 
