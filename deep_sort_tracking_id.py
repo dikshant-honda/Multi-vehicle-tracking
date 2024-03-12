@@ -17,12 +17,15 @@ from utils.general import check_img_size, check_requirements, check_imshow, non_
     scale_coords, xyxy2xywh, strip_optimizer, set_logging, increment_path
 from utils.plots import plot_one_box
 from utils.torch_utils import select_device, load_classifier, time_synchronized, TracedModel
-import matplotlib.pyplot as plt 
+import matplotlib.pyplot as plt
 from deep_sort_pytorch.utils.parser import get_config
 from deep_sort_pytorch.deep_sort import DeepSort
 from collections import deque
 import numpy as np
 import math
+
+import signal
+import sys
 
 palette = (2 ** 11 - 1, 2 ** 15 - 1, 2 ** 20 - 1)
 
@@ -143,7 +146,6 @@ def estimateSpeed(location1, location2):
 def draw_boxes(img, bbox, names, object_id, save_txt, txt_path, identities=None, offset=(0, 0)):
     pos_and_vel_data = pos_and_vel()
     robotMarker = Marker()
-    state = PointStamped()
     direction = 0
     # cv2.line(img, line[0], line[1], (46,162,112), 3)
     # As we are doing detection frame by frame, so here i am checking the height and width of the current frame
@@ -180,8 +182,7 @@ def draw_boxes(img, bbox, names, object_id, save_txt, txt_path, identities=None,
 
         data_deque[id].appendleft(center)
         transformed_center_deque[id].appendleft(transformed_center[0][0])
-        
-    
+
         if len(data_deque[id]) >= 2:
 
             if len(speed_line_queue[id]) >= 1:
@@ -227,13 +228,14 @@ def draw_boxes(img, bbox, names, object_id, save_txt, txt_path, identities=None,
             # coeff = (math.cos(4*math.pi*normdeltheta) +1)/2
             # heading = heading_deque[id][-2] + coeff*deltheta
 
-            if transformed_center_deque[id][-1][0]-transformed_center_deque[id][0][0]>=0: # this is working on difference in x coordinate not y!!!!!!!!!!!!! 
+            # this is working on difference in x coordinate not y!!!!!!!!!!!!!
+            if transformed_center_deque[id][-1][0]-transformed_center_deque[id][0][0] >= 0:
                 direction = 1
                 robotMarker.header.frame_id = "map"
-                robotMarker.header.stamp    = rospy.get_rostime()
+                robotMarker.header.stamp = rospy.get_rostime()
                 robotMarker.ns = "vehicle"
                 robotMarker.id = id
-                robotMarker.type = 2 # sphere
+                robotMarker.type = 2  # sphere
                 robotMarker.action = 0
                 robotMarker.pose.position.x = transformed_center[0][0][0]
                 robotMarker.pose.position.y = transformed_center[0][0][1]
@@ -251,13 +253,13 @@ def draw_boxes(img, bbox, names, object_id, save_txt, txt_path, identities=None,
                 robotMarker.color.b = 0.0
                 robotMarker.color.a = 1.0
                 robotMarker.lifetime.nsecs = 75000000
-            else: 
-                direction=-1
+            else:
+                direction = -1
                 robotMarker.header.frame_id = "map"
-                robotMarker.header.stamp    = rospy.get_rostime()
+                robotMarker.header.stamp = rospy.get_rostime()
                 robotMarker.ns = "vehicle"
                 robotMarker.id = id
-                robotMarker.type = 1 # cube
+                robotMarker.type = 1  # cube
                 robotMarker.action = 0
                 robotMarker.pose.position.x = transformed_center[0][0][0]
                 robotMarker.pose.position.y = transformed_center[0][0][1]
@@ -280,11 +282,12 @@ def draw_boxes(img, bbox, names, object_id, save_txt, txt_path, identities=None,
             pos_and_vel_data.id.data = id
             pos_and_vel_data.x_position.data = transformed_center[0][0][0]
             pos_and_vel_data.y_position.data = transformed_center[0][0][1]
-            pos_and_vel_data.speed.data = sum(speed_line_queue[id][-5:]) // len(speed_line_queue[id][-5:])
-            pos_and_vel_data.direction.data = direction 
+            pos_and_vel_data.speed.data = sum(
+                speed_line_queue[id][-5:]) // len(speed_line_queue[id][-5:])
+            pos_and_vel_data.direction.data = direction
             pub.publish(pos_and_vel_data)
             markerPub.publish(robotMarker)
-            
+
             # rospy.loginfo(pos_and_vel_data)
         rate.sleep()
 
@@ -429,24 +432,13 @@ def detect(save_img=True):
                 # Same for the oids (object id), we will append the Object ID's into it
                 oids = []
 
-                """
-                change:
-                OIDs is storing the type of vehicle id not the actual object id
-                """
                 for *xyxy, conf, cls in reversed(det):
                     x_c, y_c, bbox_w, bbox_h = xyxy_to_xywh(*xyxy)
                     xywh_obj = [x_c, y_c, bbox_w, bbox_h]
                     xywh_bboxs.append(xywh_obj)
                     confs.append([conf.item()])
                     oids.append(int(cls))
-                    # if save_txt:  # Write to file
-                    #     xywh = (xyxy2xywh(torch.tensor(xyxy).view(1, 4)
-                    #                       ) / gn).view(-1).tolist()  # normalized xywh
-                    #     # label format
-                    #     line = (
-                    #         cls, *xywh, conf) if opt.save_conf else (cls, *xywh)
-                    #     with open(txt_path + '.txt', 'a') as f:
-                    #         f.write(('%g ' * len(line)).rstrip() % line + '\n')
+
                 xywhs = torch.Tensor(xywh_bboxs)
                 confss = torch.Tensor(confs)
                 outputs = deepsort.update(xywhs, confss, oids, im0)
@@ -490,6 +482,11 @@ def detect(save_img=True):
     if save_txt or save_img:
         s = f"\n{len(list(save_dir.glob('labels/*.txt')))} labels saved to {save_dir / 'labels'}" if save_txt else ''
         print(f"Results saved to {save_dir}{s}")
+
+
+def signal_handler(signal, frame):
+    print("\nCtrl+C detected. Exiting!")
+    sys.exit(0)
 
 
 if __name__ == '__main__':
@@ -544,9 +541,8 @@ if __name__ == '__main__':
     rospy.init_node('data')
     rate = rospy.Rate(10000)
 
-    loop = False    # boolean to avoid looping
+    signal.signal(signal.SIGINT, signal_handler)
 
-    # while not rospy.is_shutdown() and not loop:
     with torch.no_grad():
         if opt.update:  # update all models (to fix SourceChangeWarning)
             for opt.weights in ['yolov7.pt']:
