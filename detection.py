@@ -268,8 +268,10 @@ def ros_updates(id, transformed_center, transformed_center_deque):
     pos_and_vel_data.speed.data = sum(
         speed_line_queue[id][-5:]) // len(speed_line_queue[id][-5:])
     pos_and_vel_data.direction.data = direction
+    env_info.info.append(pos_and_vel_data)
+    print(len(env_info.info))
     # env_info.append(pos_and_vel_data)
-    # if len(env_info) == len(data_deque):
+    # if len(env_info.info) == len(data_deque):
     #     print("all published")
     #     print()
     pub.publish(pos_and_vel_data)
