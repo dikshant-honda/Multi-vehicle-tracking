@@ -260,7 +260,6 @@ def ros_updates(env_info, id, transformed_center, transformed_center_deque):
         mark(robotMarker, id, 2,
              transformed_center[0][0][0], transformed_center[0][0][1], 0, -1, "g")
 
-    pos_and_vel_data.number_of_vehicles.data = len(data_deque)
     pos_and_vel_data.id.data = id
     pos_and_vel_data.x_position.data = transformed_center[0][0][0]
     pos_and_vel_data.y_position.data = transformed_center[0][0][1]
