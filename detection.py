@@ -221,7 +221,7 @@ def mark(marker, id, type, x, y, z, w, color):
     marker.header.stamp = rospy.get_rostime()
     marker.ns = "vehicle"
     marker.id = id
-    marker.type = type  
+    marker.type = type
     marker.action = 0
     marker.pose.position.x = x
     marker.pose.position.y = y
@@ -238,12 +238,13 @@ def mark(marker, id, type, x, y, z, w, color):
         marker.color.r = 1.0
         marker.color.g = 0.0
     else:
-        marker.color.r  = 0.0
-        marker.color.g  = 1.0
+        marker.color.r = 0.0
+        marker.color.g = 1.0
     marker.color.b = 0.0
     marker.color.a = 1.0
     marker.lifetime.nsecs = 75000000
     markerPub.publish(marker)
+
 
 def ros_updates(env_info, id, transformed_center, transformed_center_deque):
     pos_and_vel_data = pos_and_vel()
@@ -251,11 +252,13 @@ def ros_updates(env_info, id, transformed_center, transformed_center_deque):
 
     if transformed_center_deque[id][-1][0]-transformed_center_deque[id][0][0] >= 0:
         direction = 1
-        mark(robotMarker, id, 1, transformed_center[0][0][0], transformed_center[0][0][1], 0, 1, "r")
+        mark(robotMarker, id, 1,
+             transformed_center[0][0][0], transformed_center[0][0][1], 0, 1, "r")
 
     else:
         direction = -1
-        mark(robotMarker, id, 2, transformed_center[0][0][0], transformed_center[0][0][1], 0, -1, "g")
+        mark(robotMarker, id, 2,
+             transformed_center[0][0][0], transformed_center[0][0][1], 0, -1, "g")
 
     pos_and_vel_data.number_of_vehicles.data = len(data_deque)
     pos_and_vel_data.id.data = id
@@ -325,7 +328,8 @@ def draw_boxes(img, bbox, names, object_id, save_txt, txt_path, identities=None,
             speed_line_queue[id].append(obj_speed)
 
             # publish the data
-            ros_updates(env_info, id, transformed_center, transformed_center_deque)
+            ros_updates(env_info, id, transformed_center,
+                        transformed_center_deque)
 
         try:
             # label = label + " " + str(speed_line_queue[id][-1]) + "km/h"  ##
@@ -498,7 +502,7 @@ if __name__ == '__main__':
     M = np.array(M, np.float32)
 
     # publishing the data
-    env_info_pub = rospy.Publisher('env_info_pubisher', queue, queue_size=10)
+    env_info_pub = rospy.Publisher('env_info', queue, queue_size=10)
     markerPub = rospy.Publisher('robotMarker', Marker, queue_size=10)
     rospy.init_node('data')
     rate = rospy.Rate(10000)
