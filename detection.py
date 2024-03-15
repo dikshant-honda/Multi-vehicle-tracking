@@ -13,7 +13,6 @@ from collections import deque
 import rospy
 from multi_vehicle_tracking.msg import pos_and_vel, queue
 from visualization_msgs.msg import Marker
-from geometry_msgs.msg import PointStamped
 
 import cv2
 import torch
@@ -48,8 +47,6 @@ def load_classes(path):
 
 
 def detect(save_img=True):
-    global loop
-    loop = True
     names, source, weights, view_img, save_txt, imgsz, trace = opt.names, opt.source, opt.weights, opt.view_img, opt.save_txt, opt.img_size, not opt.no_trace
     save_img = not opt.nosave and not source.endswith(
         '.txt')  # save inference images
@@ -248,8 +245,7 @@ def mark(marker, id, type, x, y, z, w, color):
     marker.lifetime.nsecs = 75000000
     markerPub.publish(marker)
 
-def ros_updates(id, transformed_center, transformed_center_deque):
-    env_info = queue()
+def ros_updates(env_info, id, transformed_center, transformed_center_deque):
     pos_and_vel_data = pos_and_vel()
     robotMarker = Marker()
 
@@ -269,18 +265,16 @@ def ros_updates(id, transformed_center, transformed_center_deque):
         speed_line_queue[id][-5:]) // len(speed_line_queue[id][-5:])
     pos_and_vel_data.direction.data = direction
     env_info.info.append(pos_and_vel_data)
-    print(len(env_info.info))
-    # env_info.append(pos_and_vel_data)
-    # if len(env_info.info) == len(data_deque):
-    #     print("all published")
-    #     print()
-    pub.publish(pos_and_vel_data)
 
-    # rospy.loginfo(pos_and_vel_data)
+    # publishing position and velocity data of every vehicle in the frame
+    if len(env_info.info) == len(data_deque):
+        env_info_pub.publish(env_info)
+
     rate.sleep()
 
 
 def draw_boxes(img, bbox, names, object_id, save_txt, txt_path, identities=None, offset=(0, 0)):
+    env_info = queue()
     for key in list(data_deque):
         if key not in identities:
             data_deque.pop(key)
@@ -331,7 +325,7 @@ def draw_boxes(img, bbox, names, object_id, save_txt, txt_path, identities=None,
             speed_line_queue[id].append(obj_speed)
 
             # publish the data
-            ros_updates(id, transformed_center, transformed_center_deque)
+            ros_updates(env_info, id, transformed_center, transformed_center_deque)
 
         try:
             # label = label + " " + str(speed_line_queue[id][-1]) + "km/h"  ##
@@ -504,7 +498,7 @@ if __name__ == '__main__':
     M = np.array(M, np.float32)
 
     # publishing the data
-    pub = rospy.Publisher('pos_and_vel_data', pos_and_vel, queue_size=10)
+    env_info_pub = rospy.Publisher('env_info_pubisher', queue, queue_size=10)
     markerPub = rospy.Publisher('robotMarker', Marker, queue_size=10)
     rospy.init_node('data')
     rate = rospy.Rate(10000)
