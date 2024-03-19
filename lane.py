@@ -43,7 +43,7 @@ def lanes():
     M = np.load(transform_matrix_path)
     M = np.array(M, np.float32)
 
-    final_img, slopes, filter_lines = draw_lines(img, lines)
+    _, _, filter_lines = draw_lines(img, lines)
 
     filter_lines = np.array(filter_lines)
 
@@ -85,6 +85,3 @@ def lanes():
         mid_lines.append([midx1, midy1, midx2, midy2])
         cv2.line(per_im, (midx1, midy1), (midx2, midy2), (255, 0, 0), 2)
     return mid_lines
-
-
-mid_lanes = lanes()

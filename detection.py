@@ -11,7 +11,7 @@ import math
 from collections import deque
 
 import rospy
-from multi_vehicle_tracking.msg import pos_and_vel, queue, point
+from multi_vehicle_tracking.msg import pos_and_vel, queue
 from visualization_msgs.msg import Marker
 
 import cv2
@@ -254,7 +254,6 @@ def mark(marker, id, type, x, y, z, w, color):
 def ros_updates(env_info, id, transformed_center, transformed_center_deque, mid_lanes):
     pos_and_vel_data = pos_and_vel()
     robotMarker = Marker()
-    lane_info = point()
 
     if transformed_center_deque[id][-1][1]-transformed_center_deque[id][0][1] >= 0:
         direction = 1
@@ -282,13 +281,11 @@ def ros_updates(env_info, id, transformed_center, transformed_center_deque, mid_
                       transformed_center[0][0][1]])
         dist = abs(np.cross(p2-p1, p3-p1)/np.linalg.norm(p2-p1))
         if dist < d:
-            lane_info.start_x.data = line[0]    # start point
-            lane_info.start_y.data = line[1]    # start point
-            lane_info.end_x.data = line[2]    # start point
-            lane_info.end_y.data = line[3]    # start point
+            pos_and_vel_data.start_x.data = line[0]
+            pos_and_vel_data.start_y.data = line[1]
+            pos_and_vel_data.end_x.data = line[2]
+            pos_and_vel_data.end_y.data = line[3]
             d = dist
-
-    env_info.lane.append(lane_info)
 
     # publishing position and velocity data of every vehicle in the frame
     if len(env_info.info) == len(data_deque):
