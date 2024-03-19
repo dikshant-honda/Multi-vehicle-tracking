@@ -11,7 +11,7 @@ import math
 from collections import deque
 
 import rospy
-from multi_vehicle_tracking.msg import pos_and_vel, queue
+from multi_vehicle_tracking.msg import pos_and_vel, queue, point
 from visualization_msgs.msg import Marker
 
 import cv2
@@ -27,6 +27,7 @@ from utils.torch_utils import select_device, load_classifier, time_synchronized,
 import matplotlib.pyplot as plt
 from deep_sort_pytorch.utils.parser import get_config
 from deep_sort_pytorch.deep_sort import DeepSort
+from lane import lanes
 
 
 def estimateSpeed(location1, location2):
@@ -58,6 +59,10 @@ def detect(save_img=True):
                     exist_ok=opt.exist_ok))  # increment run
     (save_dir / 'labels' if save_txt else save_dir).mkdir(parents=True,
                                                           exist_ok=True)  # make dir
+    
+    # lane information
+    mid_lanes = lanes()
+
     # initialize deepsort
     cfg_deep = get_config()
     cfg_deep.merge_from_file("deep_sort_pytorch/configs/deep_sort.yaml")
@@ -181,7 +186,7 @@ def detect(save_img=True):
                     identities = outputs[:, -2]
                     object_id = outputs[:, -1]
                     # DrawBoxes function to draw the bounding boxes, label them and show the ID of the tracker
-                    draw_boxes(im0, bbox_xyxy, names, object_id,
+                    draw_boxes(im0, mid_lanes, bbox_xyxy, names, object_id,
                                save_txt, txt_path, identities)
 
             # Stream results
@@ -246,11 +251,12 @@ def mark(marker, id, type, x, y, z, w, color):
     markerPub.publish(marker)
 
 
-def ros_updates(env_info, id, transformed_center, transformed_center_deque):
+def ros_updates(env_info, id, transformed_center, transformed_center_deque, mid_lanes):
     pos_and_vel_data = pos_and_vel()
     robotMarker = Marker()
+    lane_info = point()
 
-    if transformed_center_deque[id][-1][0]-transformed_center_deque[id][0][0] >= 0:
+    if transformed_center_deque[id][-1][1]-transformed_center_deque[id][0][1] >= 0:
         direction = 1
         mark(robotMarker, id, 1,
              transformed_center[0][0][0], transformed_center[0][0][1], 0, 1, "r")
@@ -267,6 +273,22 @@ def ros_updates(env_info, id, transformed_center, transformed_center_deque):
         speed_line_queue[id][-5:]) // len(speed_line_queue[id][-5:])
     pos_and_vel_data.direction.data = direction
     env_info.info.append(pos_and_vel_data)
+    d = math.inf
+
+    for line in mid_lanes:
+        p1 = np.array([line[0], line[1]])
+        p2 = np.array([line[2], line[3]])
+        p3 = np.array([transformed_center[0][0][0],
+                      transformed_center[0][0][1]])
+        dist = abs(np.cross(p2-p1, p3-p1)/np.linalg.norm(p2-p1))
+        if dist < d:
+            lane_info.start_x.data = line[0]    # start point
+            lane_info.start_y.data = line[1]    # start point
+            lane_info.end_x.data = line[2]    # start point
+            lane_info.end_y.data = line[3]    # start point
+            d = dist
+
+    env_info.lane.append(lane_info)
 
     # publishing position and velocity data of every vehicle in the frame
     if len(env_info.info) == len(data_deque):
@@ -275,7 +297,7 @@ def ros_updates(env_info, id, transformed_center, transformed_center_deque):
     rate.sleep()
 
 
-def draw_boxes(img, bbox, names, object_id, save_txt, txt_path, identities=None, offset=(0, 0)):
+def draw_boxes(img, mid_lanes, bbox, names, object_id, save_txt, txt_path, identities=None, offset=(0, 0)):
     env_info = queue()
     for key in list(data_deque):
         if key not in identities:
@@ -291,7 +313,9 @@ def draw_boxes(img, bbox, names, object_id, save_txt, txt_path, identities=None,
         # find center of bottom edge of the bounding box
         center = (int((x2+x1) / 2), int((y2+y2)/2))
         np_center = np.array(center, dtype=np.float32).reshape(1, -1, 2)
-        transformed_center = cv2.perspectiveTransform(np_center, M)
+        # transformed_center = cv2.perspectiveTransform(np_center, M)
+        transformed_center = np.flip(cv2.perspectiveTransform(np_center, M), 2)
+
         # get a unique ID of each object
         id = int(identities[i]) if identities is not None else 0
 
@@ -328,7 +352,7 @@ def draw_boxes(img, bbox, names, object_id, save_txt, txt_path, identities=None,
 
             # publish the data
             ros_updates(env_info, id, transformed_center,
-                        transformed_center_deque)
+                        transformed_center_deque, mid_lanes)
 
         try:
             # label = label + " " + str(speed_line_queue[id][-1]) + "km/h"  ##
