@@ -11,6 +11,7 @@ import math
 from collections import deque
 
 import rospy
+from geometry_msgs.msg import Point
 from multi_vehicle_tracking.msg import pos_and_vel, queue
 from visualization_msgs.msg import Marker
 
@@ -281,10 +282,11 @@ def ros_updates(env_info, id, transformed_center, transformed_center_deque, mid_
                       transformed_center[0][0][1]])
         dist = abs(np.cross(p2-p1, p3-p1)/np.linalg.norm(p2-p1))
         if dist < d:
-            pos_and_vel_data.start_x.data = line[0]
-            pos_and_vel_data.start_y.data = line[1]
-            pos_and_vel_data.end_x.data = line[2]
-            pos_and_vel_data.end_y.data = line[3]
+            start_point, end_point = Point(), Point()
+            start_point.x, start_point.y = line[0], line[1]
+            end_point.x, end_point.y = line[2], line[3]
+            pos_and_vel_data.start_point = start_point
+            pos_and_vel_data.end_point = end_point
             d = dist
 
     # publishing position and velocity data of every vehicle in the frame
